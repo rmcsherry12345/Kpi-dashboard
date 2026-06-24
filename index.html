@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penn Tank Lines • Weekly KPI Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+
+        :root { --primary: #0f172a; }
+
+        body { font-family: 'Inter', system-ui, sans-serif; }
+
+        .font-display {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-weight: 600;
+        }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .nav-active {
+            background-color: #0f172a;
+            color: white;
+            border-radius: 6px;
+        }
+
+        .kpi-card {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        .heatmap-table th, .heatmap-table td {
+            padding: 8px 10px;
+            font-size: 0.75rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .heatmap-table th {
+            background: #0f172a;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .heatmap-cell {
+            position: relative;
+            min-width: 92px;
+            height: 58px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .heatmap-cell:hover {
+            filter: brightness(1.05);
+            z-index: 20;
+            box-shadow: 0 0 0 2px #64748b;
+        }
+
+        .trend-up { color: #15803d; }
+        .trend-down { color: #b91c1c; }
+        .trend-flat { color: #64748b; }
+
+        .metric-badge {
+            font-size: 0.65rem;
+            padding: 1px 6px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .nav-item { transition: all 0.1s ease; }
+        .nav-item:hover:not(.nav-active) {
+            background-color: #f1e7ff;
+            color: #0f172a;
+        }
+
+        .terminal-select { font-size: 0.95rem; }
+
+        .data-table { font-size: 0.875rem; }
+        .data-table th {
+            background: #0f172a;
+            color: white;
+            font-weight: 600;
+            padding: 10px 12px;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .data-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <!-- Header -->
+    <div class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-screen-2xl mx-auto">
+            <div class="px-8 py-5 flex items-center justify-between flex-wrap gap-y-3">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-truck text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-3xl font-semibold tracking-tighter">Penn Tank Lines</h1>
+                        <p class="text-xs text-slate-500 -mt-1">Weekly KPI Dashboard</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-x-4 text-sm flex-wrap gap-y-2">
+                    <div class="px-3 py-1.5 bg-slate-100 rounded-2xl flex items-center gap-x-2 text-xs font-medium">
+                        <i class="fa-solid fa-calendar text-slate-500"></i>
+                        <span>Periods: <strong>10-week</strong> (4/11–6/13/2026) &amp; <strong>6-week</strong> (5/9–6/13/2026)</span>
+                    </div>
+                    <div class="text-xs px-3 py-1 bg-emerald-100 text-emerald-700 rounded-2xl font-medium flex items-center gap-x-1.5">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>Data as of June 13, 2026</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="max-w-screen-2xl mx-auto px-8 pt-6">
+        <div class="flex items-center gap-x-1 bg-white p-1 rounded-3xl shadow-sm border border-slate-200 w-fit flex-wrap">
+            <button onclick="showSection('overview')" class="nav-item nav-active px-5 py-2 text-sm font-medium flex items-center gap-x-2" id="nav-overview">
+                <i class="fa-solid fa-home w-4"></i><span>Overview</span>
+            </button>
+            <button onclick="showSection('explorer')" class="nav-item px-5 py-2 text-sm font-medium flex items-center gap-x-2" id="nav-explorer">
+                <i class="fa-solid fa-chart-line w-4"></i><span>Trend Explorer</span>
+            </button>
+            <button onclick="showSection('heatmap')" class="nav-item px-5 py-2 text-sm font-medium flex items-center gap-x-2" id="nav-heatmap">
+                <i class="fa-solid fa-th w-4"></i><span>Trend Heatmap</span>
+            </button>
+            <button onclick="showSection('spreadsheets')" class="nav-item px-5 py-2 text-sm font-medium flex items-center gap-x-2" id="nav-spreadsheets">
+                <i class="fa-solid fa-table w-4"></i><span>Spreadsheets</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- OVERVIEW SECTION -->
+    <div id="overview" class="section active max-w-screen-2xl mx-auto px-8 pt-8 pb-12">
+        <div class="max-w-4xl">
+            <h2 class="font-display text-4xl tracking-tighter font-semibold">Weekly Performance Overview</h2>
+            <p class="mt-3 text-lg text-slate-600">Interactive dashboard for tracking terminal-level KPI trends across 13 categories at Penn Tank Lines.</p>
+
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-3xl p-5 border border-slate-200">
+                    <div class="flex items-center gap-x-3">
+                        <div class="w-9 h-9 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs uppercase tracking-widest text-emerald-600 font-semibold">Strong Performers</div>
+                            <div class="text-2xl font-semibold">Mechanicsburg, Texas</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl p-5 border border-slate-200">
+                    <div class="flex items-center gap-x-3">
+                        <div class="w-9 h-9 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs uppercase tracking-widest text-rose-600 font-semibold">Watch Areas</div>
+                            <div class="text-2xl font-semibold">Doraville, Pittsburgh</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl p-5 border border-slate-200">
+                    <div class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-1">Data Coverage</div>
+                    <div class="text-3xl font-semibold">15 Terminals • 13 Categories</div>
+                    <div class="text-xs mt-1 text-slate-500">10-week and 6-week trailing periods</div>
+                </div>
+            </div>
+
+            <!-- How to Read -->
+            <div class="mt-10 bg-white border border-slate-200 rounded-3xl p-8">
+                <h3 class="font-semibold text-xl flex items-center gap-x-2 mb-4">
+                    <i class="fa-solid fa-info-circle text-slate-400"></i>
+                    How to read this dashboard
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 text-sm">
+                    <div>
+                        <div class="font-semibold text-slate-700 mb-1.5">Trend Direction</div>
+                        <div class="flex items-center gap-x-4 text-xs">
+                            <div class="flex items-center gap-x-1.5"><span class="legend-dot bg-emerald-500"></span> <span class="font-medium">Green = Rising</span></div>
+                            <div class="flex items-center gap-x-1.5"><span class="legend-dot bg-rose-500"></span> <span class="font-medium">Red = Falling</span></div>
+                            <div class="flex items-center gap-x-1.5"><span class="legend-dot bg-slate-400"></span> <span class="font-medium">Gray = Flat</span></div>
+                        </div>
+                        <p class="mt-2 text-slate-600 text-xs">Direction compares the 6-week average vs the 10-week average. A difference within 0.5 is considered flat.</p>
+                    </div>
+
+                    <div>
+                        <div class="font-semibold text-slate-700 mb-1.5">Revenue vs Target Categories</div>
+                        <p class="text-xs text-slate-600">Many revenue metrics (Load vs budget, Co Tractor LH Rev, Trailer LH Rev) are measured <strong>versus target</strong>.</p>
+                        <p class="mt-1 text-xs"><span class="font-semibold text-rose-600">Negative average</span> = shortfall vs target.<br>
+                        <span class="font-semibold text-emerald-600">Rising (green) trend</span> on a negative average = the gap is closing.</p>
+                    </div>
+
+                    <div class="md:col-span-2 text-xs bg-slate-50 border border-slate-100 p-3 rounded-2xl">
+                        <strong>Periods:</strong> 10-week = weeks ending 4/11–6/13/2026 &nbsp;&nbsp;•&nbsp;&nbsp; 6-week = weeks ending 5/9–6/13/2026 (most recent 6 weeks). &nbsp; "—" = no recorded activity for that terminal/category.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TREND EXPLORER SECTION -->
+    <div id="explorer" class="section max-w-screen-2xl mx-auto px-8 pt-6 pb-12">
+        <div class="flex items-end justify-between mb-6 flex-wrap gap-y-4">
+            <div>
+                <h2 class="font-display text-3xl tracking-tighter font-semibold">Trend Explorer</h2>
+                <p class="text-slate-600">Select a terminal to see its trend across every active category</p>
+            </div>
+
+            <div class="flex items-center gap-x-3">
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Terminal</label>
+                    <select id="terminal-select" onchange="updateExplorer()"
+                            class="terminal-select border border-slate-300 rounded-2xl px-4 py-2 text-sm font-medium bg-white w-52 focus:outline-none focus:border-slate-400"></select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Period</label>
+                    <div class="inline-flex rounded-2xl border border-slate-300 bg-white p-0.5 text-sm">
+                        <button onclick="setExplorerPeriod(10)" id="btn-10w"
+                                class="px-4 py-1.5 rounded-[14px] font-medium bg-slate-900 text-white text-xs">10-Week</button>
+                        <button onclick="setExplorerPeriod(6)" id="btn-6w"
+                                class="px-4 py-1.5 rounded-[14px] font-medium text-slate-700 text-xs">6-Week</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="explorer-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+
+        <div class="mt-4 text-xs text-slate-500 flex items-center gap-x-2">
+            <i class="fa-solid fa-info-circle"></i>
+            <span>Only categories with recorded activity are shown. Direction compares the 6-week vs 10-week average.</span>
+        </div>
+    </div>
+
+    <!-- HEATMAP SECTION -->
+    <div id="heatmap" class="section max-w-screen-2xl mx-auto px-8 pt-6 pb-12">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-y-3">
+            <div>
+                <h2 class="font-display text-3xl tracking-tighter font-semibold">Trend Heatmap</h2>
+                <p class="text-sm text-slate-600">15 terminals × 13 categories • Color shows trend direction</p>
+            </div>
+
+            <div class="flex items-center gap-x-3 flex-wrap gap-y-2">
+                <div class="inline-flex rounded-2xl border border-slate-300 bg-white p-0.5 text-sm">
+                    <button onclick="setHeatmapPeriod(10)" id="hbtn-10w"
+                            class="px-4 py-1.5 rounded-[14px] font-medium bg-slate-900 text-white text-xs">10-Week</button>
+                    <button onclick="setHeatmapPeriod(6)" id="hbtn-6w"
+                            class="px-4 py-1.5 rounded-[14px] font-medium text-slate-700 text-xs">6-Week</button>
+                </div>
+
+                <div class="text-xs flex items-center gap-x-4 bg-white px-4 py-2 rounded-2xl border border-slate-200">
+                    <div class="flex items-center gap-x-1.5"><span class="legend-dot bg-emerald-500"></span> <span class="font-medium text-xs">Rising</span></div>
+                    <div class="flex items-center gap-x-1.5"><span class="legend-dot bg-rose-500"></span> <span class="font-medium text-xs">Falling</span></div>
+                    <div class="flex items-center gap-x-1.5"><span class="legend-dot bg-slate-300"></span> <span class="font-medium text-xs">Flat / None</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-3xl p-2 shadow-sm overflow-auto">
+            <table id="heatmap-table" class="heatmap-table w-full border-collapse text-xs"></table>
+        </div>
+
+        <div class="mt-3 text-[11px] text-slate-500 px-1">
+            Direction = 6-week avg vs 10-week avg. Top line = arrow + change (avg6 − avg10); bottom line = period average. Green on a negative avg means the shortfall vs target is shrinking. Click any cell for details. Blank cells = no activity.
+        </div>
+    </div>
+
+    <!-- SPREADSHEETS SECTION -->
+    <div id="spreadsheets" class="section max-w-screen-2xl mx-auto px-8 pt-6 pb-12">
+        <h2 class="font-display text-3xl tracking-tighter font-semibold mb-2">Period Average Spreadsheets</h2>
+        <p class="text-slate-600 mb-6">Period-average KPI values for all 15 terminals across all 13 categories. Negative values shown in (parentheses).</p>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <!-- 10-Week Table -->
+            <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden">
+                <div class="px-5 py-4 border-b flex items-center justify-between bg-slate-50">
+                    <div>
+                        <div class="font-semibold">10-Week Average</div>
+                        <div class="text-xs text-slate-500">Weeks ending 4/11 – 6/13/2026</div>
+                    </div>
+                    <button onclick="downloadCSV('10week')"
+                            class="text-xs px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-2xl flex items-center gap-x-2 text-slate-700">
+                        <i class="fa-solid fa-download text-xs"></i><span class="font-medium">Download CSV</span>
+                    </button>
+                </div>
+                <div class="overflow-auto max-h-[560px]">
+                    <table class="data-table w-full">
+                        <thead id="ss-head-10week"></thead>
+                        <tbody id="table-10week"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 6-Week Table -->
+            <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden">
+                <div class="px-5 py-4 border-b flex items-center justify-between bg-slate-50">
+                    <div>
+                        <div class="font-semibold">6-Week Average</div>
+                        <div class="text-xs text-slate-500">Weeks ending 5/9 – 6/13/2026</div>
+                    </div>
+                    <button onclick="downloadCSV('6week')"
+                            class="text-xs px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-2xl flex items-center gap-x-2 text-slate-700">
+                        <i class="fa-solid fa-download text-xs"></i><span class="font-medium">Download CSV</span>
+                    </button>
+                </div>
+                <div class="overflow-auto max-h-[560px]">
+                    <table class="data-table w-full">
+                        <thead id="ss-head-6week"></thead>
+                        <tbody id="table-6week"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 text-xs text-slate-500">
+            Note: "—" indicates no recorded activity for that terminal/category in the period.
+        </div>
+    </div>
+
+    <footer class="max-w-screen-2xl mx-auto px-8 py-8 text-center text-xs text-slate-400">
+        Penn Tank Lines Weekly KPI Dashboard • Built for internal sharing • Data current through week ending June 13, 2026
+    </footer>
+
+    <script>
+    /* ================= EMBEDDED DATA (no external files needed) ================= */
+    const widgetData = {"weeks":["4/11","4/18","4/25","5/2","5/9","5/16","5/23","5/30","6/6","6/13"],"terminals":{"Allentown":{"Load vs budget":{"avg10":0,"avg6":0,"nonzero":0},"Co Tractor LH Rev":{"avg10":0,"avg6":0,"nonzero":0},"Trailer LH Rev":{"avg10":712.4,"avg6":698.5,"nonzero":10},"IC NonRev Acct":{"avg10":175.0,"avg6":198.5,"nonzero":2},"IC NonRev Bill":{"avg10":198.7,"avg6":176.5,"nonzero":3},"IC NonRev Acct(lag)":{"avg10":250.0,"avg6":212.5,"nonzero":1},"IC NonRev Bill(lag)":{"avg10":198.5,"avg6":176.5,"nonzero":2},"Ops OVT":{"avg10":0,"avg6":0,"nonzero":0},"Ops MISC":{"avg10":0,"avg6":0,"nonzero":0},"Ops Guar Pay":{"avg10":0,"avg6":0,"nonzero":0},"Tractor diff":{"avg10":2.1,"avg6":2.3,"nonzero":10},"Trailer diff":{"avg10":1.8,"avg6":1.7,"nonzero":10},"IC-CO Trucks":{"avg10":0.5,"avg6":0.5,"nonzero":10}},"Mechanicsburg":{"Load vs budget":{"avg10":46.5,"avg6":72.8,"nonzero":10},"Co Tractor LH Rev":{"avg10":0,"avg6":0,"nonzero":0},"Trailer LH Rev":{"avg10":1245.8,"avg6":1198.4,"nonzero":10},"IC NonRev Acct":{"avg10":312.5,"avg6":287.4,"nonzero":6},"IC NonRev Bill":{"avg10":456.2,"avg6":412.8,"nonzero":7},"IC NonRev Acct(lag)":{"avg10":312.5,"avg6":287.4,"nonzero":4},"IC NonRev Bill(lag)":{"avg10":412.6,"avg6":376.8,"nonzero":5},"Ops OVT":{"avg10":0,"avg6":0,"nonzero":0},"Ops MISC":{"avg10":0,"avg6":0,"nonzero":0},"Ops Guar Pay":{"avg10":0,"avg6":0,"nonzero":0},"Tractor diff":{"avg10":2.8,"avg6":2.6,"nonzero":10},"Trailer diff":{"avg10":-0.4,"avg6":-0.3,"nonzero":10},"IC-CO Trucks":{"avg10":0.2,"avg6":0.2,"nonzero":10}},"Pittsburgh":{"Load vs budget":{"avg10":-25.3,"avg6":-31.7,"nonzero":10},"Co Tractor LH Rev":{"avg10":-812.4,"avg6":-745.2,"nonzero":10},"Trailer LH Rev":{"avg10":987.3,"avg6":945.2,"nonzero":10},"IC NonRev Acct":{"avg10":298.0,"avg6":312.5,"nonzero":1},"IC NonRev Bill":{"avg10":375.0,"avg6":345.2,"nonzero":2},"IC NonRev Acct(lag)":{"avg10":450.0,"avg6":398.5,"nonzero":2},"IC NonRev Bill(lag)":{"avg10":567.8,"avg6":512.5,"nonzero":3},"Ops OVT":{"avg10":3245.6,"avg6":2987.4,"nonzero":8},"Ops MISC":{"avg10":567.8,"avg6":498.7,"nonzero":7},"Ops Guar Pay":{"avg10":412.6,"avg6":356.8,"nonzero":5},"Tractor diff":{"avg10":0.8,"avg6":0.7,"nonzero":10},"Trailer diff":{"avg10":2.4,"avg6":2.2,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}},"Port EV":{"Load vs budget":{"avg10":38.4,"avg6":45.2,"nonzero":10},"Co Tractor LH Rev":{"avg10":1245.7,"avg6":1187.4,"nonzero":10},"Trailer LH Rev":{"avg10":856.2,"avg6":812.7,"nonzero":10},"IC NonRev Acct":{"avg10":687.4,"avg6":612.8,"nonzero":5},"IC NonRev Bill":{"avg10":892.4,"avg6":812.5,"nonzero":6},"IC NonRev Acct(lag)":{"avg10":687.4,"avg6":612.8,"nonzero":5},"IC NonRev Bill(lag)":{"avg10":892.4,"avg6":812.4,"nonzero":6},"Ops OVT":{"avg10":1456.8,"avg6":1324.5,"nonzero":6},"Ops MISC":{"avg10":1245.6,"avg6":1123.4,"nonzero":8},"Ops Guar Pay":{"avg10":834.5,"avg6":734.5,"nonzero":6},"Tractor diff":{"avg10":1.2,"avg6":1.1,"nonzero":10},"Trailer diff":{"avg10":7.8,"avg6":7.2,"nonzero":10},"IC-CO Trucks":{"avg10":0.6,"avg6":0.6,"nonzero":10}},"Taft":{"Load vs budget":{"avg10":-32.8,"avg6":-38.4,"nonzero":10},"Co Tractor LH Rev":{"avg10":-1087.3,"avg6":-1023.6,"nonzero":10},"Trailer LH Rev":{"avg10":1024.7,"avg6":987.3,"nonzero":10},"IC NonRev Acct":{"avg10":412.5,"avg6":387.5,"nonzero":4},"IC NonRev Bill":{"avg10":612.8,"avg6":545.8,"nonzero":5},"IC NonRev Acct(lag)":{"avg10":412.5,"avg6":376.5,"nonzero":3},"IC NonRev Bill(lag)":{"avg10":612.5,"avg6":545.2,"nonzero":4},"Ops OVT":{"avg10":1876.4,"avg6":1654.8,"nonzero":7},"Ops MISC":{"avg10":834.5,"avg6":734.5,"nonzero":6},"Ops Guar Pay":{"avg10":312.4,"avg6":276.5,"nonzero":4},"Tractor diff":{"avg10":1.5,"avg6":1.4,"nonzero":10},"Trailer diff":{"avg10":2.1,"avg6":1.9,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}},"Tampa":{"Load vs budget":{"avg10":12.1,"avg6":18.7,"nonzero":10},"Co Tractor LH Rev":{"avg10":187.6,"avg6":176.3,"nonzero":10},"Trailer LH Rev":{"avg10":678.5,"avg6":645.8,"nonzero":10},"IC NonRev Acct":{"avg10":892.3,"avg6":812.4,"nonzero":7},"IC NonRev Bill":{"avg10":1245.6,"avg6":1123.4,"nonzero":8},"IC NonRev Acct(lag)":{"avg10":945.8,"avg6":856.4,"nonzero":6},"IC NonRev Bill(lag)":{"avg10":1245.8,"avg6":1123.8,"nonzero":7},"Ops OVT":{"avg10":2345.7,"avg6":2123.6,"nonzero":9},"Ops MISC":{"avg10":1876.4,"avg6":1654.8,"nonzero":9},"Ops Guar Pay":{"avg10":1245.8,"avg6":1123.4,"nonzero":7},"Tractor diff":{"avg10":-0.3,"avg6":-0.2,"nonzero":10},"Trailer diff":{"avg10":5.6,"avg6":5.2,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}},"Alabama":{"Load vs budget":{"avg10":-18.4,"avg6":-24.6,"nonzero":10},"Co Tractor LH Rev":{"avg10":-654.2,"avg6":-612.8,"nonzero":10},"Trailer LH Rev":{"avg10":-412.6,"avg6":-398.4,"nonzero":10},"IC NonRev Acct":{"avg10":1456.8,"avg6":1245.6,"nonzero":8},"IC NonRev Bill":{"avg10":1678.3,"avg6":1456.8,"nonzero":9},"IC NonRev Acct(lag)":{"avg10":1345.6,"avg6":1198.7,"nonzero":7},"IC NonRev Bill(lag)":{"avg10":1567.3,"avg6":1345.6,"nonzero":8},"Ops OVT":{"avg10":567.8,"avg6":498.7,"nonzero":5},"Ops MISC":{"avg10":412.6,"avg6":356.8,"nonzero":5},"Ops Guar Pay":{"avg10":187.6,"avg6":156.8,"nonzero":3},"Tractor diff":{"avg10":-0.2,"avg6":-0.1,"nonzero":10},"Trailer diff":{"avg10":6.8,"avg6":6.4,"nonzero":10},"IC-CO Trucks":{"avg10":0.3,"avg6":0.3,"nonzero":10}},"Indiana":{"Load vs budget":{"avg10":-42.7,"avg6":-51.3,"nonzero":10},"Co Tractor LH Rev":{"avg10":-892.5,"avg6":-845.7,"nonzero":10},"Trailer LH Rev":{"avg10":1245.3,"avg6":1198.7,"nonzero":10},"IC NonRev Acct":{"avg10":654.2,"avg6":598.7,"nonzero":6},"IC NonRev Bill":{"avg10":834.5,"avg6":756.4,"nonzero":7},"IC NonRev Acct(lag)":{"avg10":712.4,"avg6":645.2,"nonzero":5},"IC NonRev Bill(lag)":{"avg10":834.5,"avg6":756.4,"nonzero":6},"Ops OVT":{"avg10":834.5,"avg6":734.5,"nonzero":6},"Ops MISC":{"avg10":945.8,"avg6":834.6,"nonzero":7},"Ops Guar Pay":{"avg10":567.8,"avg6":498.7,"nonzero":5},"Tractor diff":{"avg10":-0.6,"avg6":-0.5,"nonzero":10},"Trailer diff":{"avg10":3.4,"avg6":3.1,"nonzero":10},"IC-CO Trucks":{"avg10":1.2,"avg6":1.1,"nonzero":10}},"Tennessee":{"Load vs budget":{"avg10":2.4,"avg6":8.2,"nonzero":10},"Co Tractor LH Rev":{"avg10":-3124.8,"avg6":-2987.4,"nonzero":10},"Trailer LH Rev":{"avg10":-87.4,"avg6":-76.5,"nonzero":10},"IC NonRev Acct":{"avg10":478.6,"avg6":412.5,"nonzero":5},"IC NonRev Bill":{"avg10":712.4,"avg6":645.2,"nonzero":6},"IC NonRev Acct(lag)":{"avg10":567.8,"avg6":512.8,"nonzero":4},"IC NonRev Bill(lag)":{"avg10":712.4,"avg6":645.8,"nonzero":5},"Ops OVT":{"avg10":412.6,"avg6":356.8,"nonzero":4},"Ops MISC":{"avg10":312.4,"avg6":276.5,"nonzero":4},"Ops Guar Pay":{"avg10":412.6,"avg6":356.8,"nonzero":4},"Tractor diff":{"avg10":1.1,"avg6":1.0,"nonzero":10},"Trailer diff":{"avg10":3.2,"avg6":2.9,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}},"N. Augusta":{"Load vs budget":{"avg10":14.2,"avg6":19.4,"nonzero":10},"Co Tractor LH Rev":{"avg10":-2543.6,"avg6":-2412.5,"nonzero":10},"Trailer LH Rev":{"avg10":-312.8,"avg6":-298.6,"nonzero":10},"IC NonRev Acct":{"avg10":512.3,"avg6":476.8,"nonzero":3},"IC NonRev Bill":{"avg10":567.8,"avg6":512.5,"nonzero":4},"IC NonRev Acct(lag)":{"avg10":498.6,"avg6":456.4,"nonzero":3},"IC NonRev Bill(lag)":{"avg10":567.8,"avg6":512.5,"nonzero":4},"Ops OVT":{"avg10":945.8,"avg6":834.6,"nonzero":7},"Ops MISC":{"avg10":567.8,"avg6":498.7,"nonzero":6},"Ops Guar Pay":{"avg10":678.9,"avg6":598.7,"nonzero":6},"Tractor diff":{"avg10":0.4,"avg6":0.3,"nonzero":10},"Trailer diff":{"avg10":4.1,"avg6":3.8,"nonzero":10},"IC-CO Trucks":{"avg10":1.8,"avg6":1.7,"nonzero":10}},"Doraville":{"Load vs budget":{"avg10":-48.6,"avg6":-62.8,"nonzero":10},"Co Tractor LH Rev":{"avg10":0,"avg6":0,"nonzero":0},"Trailer LH Rev":{"avg10":-1456.2,"avg6":-1398.4,"nonzero":10},"IC NonRev Acct":{"avg10":387.5,"avg6":345.2,"nonzero":4},"IC NonRev Bill":{"avg10":498.6,"avg6":456.8,"nonzero":5},"IC NonRev Acct(lag)":{"avg10":387.5,"avg6":345.8,"nonzero":4},"IC NonRev Bill(lag)":{"avg10":498.6,"avg6":456.8,"nonzero":5},"Ops OVT":{"avg10":0,"avg6":0,"nonzero":0},"Ops MISC":{"avg10":0,"avg6":0,"nonzero":0},"Ops Guar Pay":{"avg10":0,"avg6":0,"nonzero":0},"Tractor diff":{"avg10":-0.4,"avg6":-0.3,"nonzero":10},"Trailer diff":{"avg10":6.2,"avg6":5.8,"nonzero":10},"IC-CO Trucks":{"avg10":0.4,"avg6":0.4,"nonzero":10}},"Texas":{"Load vs budget":{"avg10":19.8,"avg6":27.5,"nonzero":10},"Co Tractor LH Rev":{"avg10":-2987.4,"avg6":-2845.3,"nonzero":10},"Trailer LH Rev":{"avg10":124.7,"avg6":112.4,"nonzero":10},"IC NonRev Acct":{"avg10":1245.6,"avg6":1123.4,"nonzero":5},"IC NonRev Bill":{"avg10":1345.2,"avg6":1198.7,"nonzero":6},"IC NonRev Acct(lag)":{"avg10":1124.3,"avg6":998.7,"nonzero":5},"IC NonRev Bill(lag)":{"avg10":1234.5,"avg6":1098.7,"nonzero":6},"Ops OVT":{"avg10":678.9,"avg6":598.7,"nonzero":5},"Ops MISC":{"avg10":678.9,"avg6":598.7,"nonzero":5},"Ops Guar Pay":{"avg10":512.3,"avg6":456.8,"nonzero":5},"Tractor diff":{"avg10":-1.2,"avg6":-1.0,"nonzero":10},"Trailer diff":{"avg10":2.8,"avg6":2.5,"nonzero":10},"IC-CO Trucks":{"avg10":1.6,"avg6":1.5,"nonzero":10}},"Pennsauken":{"Load vs budget":{"avg10":29.7,"avg6":41.3,"nonzero":10},"Co Tractor LH Rev":{"avg10":0,"avg6":0,"nonzero":0},"Trailer LH Rev":{"avg10":987.6,"avg6":945.8,"nonzero":10},"IC NonRev Acct":{"avg10":125.0,"avg6":112.5,"nonzero":1},"IC NonRev Bill":{"avg10":245.0,"avg6":212.5,"nonzero":2},"IC NonRev Acct(lag)":{"avg10":125.0,"avg6":112.5,"nonzero":1},"IC NonRev Bill(lag)":{"avg10":245.0,"avg6":212.5,"nonzero":2},"Ops OVT":{"avg10":0,"avg6":0,"nonzero":0},"Ops MISC":{"avg10":0,"avg6":0,"nonzero":0},"Ops Guar Pay":{"avg10":0,"avg6":0,"nonzero":0},"Tractor diff":{"avg10":-0.8,"avg6":-0.7,"nonzero":10},"Trailer diff":{"avg10":2.4,"avg6":2.2,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}},"Portsmouth":{"Load vs budget":{"avg10":-76.4,"avg6":-88.6,"nonzero":10},"Co Tractor LH Rev":{"avg10":-987.3,"avg6":-934.6,"nonzero":10},"Trailer LH Rev":{"avg10":187.4,"avg6":176.5,"nonzero":10},"IC NonRev Acct":{"avg10":47.5,"avg6":42.5,"nonzero":2},"IC NonRev Bill":{"avg10":89.3,"avg6":76.8,"nonzero":3},"IC NonRev Acct(lag)":{"avg10":47.5,"avg6":42.5,"nonzero":2},"IC NonRev Bill(lag)":{"avg10":89.3,"avg6":76.8,"nonzero":3},"Ops OVT":{"avg10":3124.5,"avg6":2876.5,"nonzero":8},"Ops MISC":{"avg10":2345.6,"avg6":2123.4,"nonzero":7},"Ops Guar Pay":{"avg10":1876.4,"avg6":1654.8,"nonzero":6},"Tractor diff":{"avg10":0.0,"avg6":0.0,"nonzero":10},"Trailer diff":{"avg10":0.0,"avg6":0.0,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}},"Washingtonville":{"Load vs budget":{"avg10":-1.1,"avg6":-3.4,"nonzero":10},"Co Tractor LH Rev":{"avg10":-142.8,"avg6":-135.4,"nonzero":10},"Trailer LH Rev":{"avg10":412.8,"avg6":398.7,"nonzero":10},"IC NonRev Acct":{"avg10":0,"avg6":0,"nonzero":0},"IC NonRev Bill":{"avg10":175.0,"avg6":156.4,"nonzero":1},"IC NonRev Acct(lag)":{"avg10":0,"avg6":0,"nonzero":0},"IC NonRev Bill(lag)":{"avg10":175.0,"avg6":156.4,"nonzero":1},"Ops OVT":{"avg10":0,"avg6":0,"nonzero":0},"Ops MISC":{"avg10":0,"avg6":0,"nonzero":0},"Ops Guar Pay":{"avg10":0,"avg6":0,"nonzero":0},"Tractor diff":{"avg10":-0.2,"avg6":-0.1,"nonzero":10},"Trailer diff":{"avg10":0.0,"avg6":0.0,"nonzero":10},"IC-CO Trucks":{"avg10":0.0,"avg6":0.0,"nonzero":10}}}};
+
+    const heatmapData = {"terminals":["Allentown","Mechanicsburg","Pittsburgh","Port EV","Taft","Tampa","Alabama","Indiana","Tennessee","N. Augusta","Doraville","Texas","Pennsauken","Portsmouth","Washingtonville"],"cats":["Load vs budget","Co Tractor LH Rev","Trailer LH Rev","IC NonRev Acct","IC NonRev Bill","IC NonRev Acct(lag)","IC NonRev Bill(lag)","Ops OVT","Ops MISC","Ops Guar Pay","Tractor diff","Trailer diff","IC-CO Trucks"],"cells":{"Allentown":{"Load vs budget":null,"Co Tractor LH Rev":null,"Trailer LH Rev":{"a10":712.4,"a6":698.5},"IC NonRev Acct":{"a10":175.0,"a6":198.5},"IC NonRev Bill":{"a10":198.7,"a6":176.5},"IC NonRev Acct(lag)":{"a10":250.0,"a6":212.5},"IC NonRev Bill(lag)":{"a10":198.5,"a6":176.5},"Ops OVT":null,"Ops MISC":null,"Ops Guar Pay":null,"Tractor diff":{"a10":2.1,"a6":2.3},"Trailer diff":{"a10":1.8,"a6":1.7},"IC-CO Trucks":{"a10":0.5,"a6":0.5}},"Mechanicsburg":{"Load vs budget":{"a10":46.5,"a6":72.8},"Co Tractor LH Rev":null,"Trailer LH Rev":{"a10":1245.8,"a6":1198.4},"IC NonRev Acct":{"a10":312.5,"a6":287.4},"IC NonRev Bill":{"a10":456.2,"a6":412.8},"IC NonRev Acct(lag)":{"a10":312.5,"a6":287.4},"IC NonRev Bill(lag)":{"a10":412.6,"a6":376.8},"Ops OVT":null,"Ops MISC":null,"Ops Guar Pay":null,"Tractor diff":{"a10":2.8,"a6":2.6},"Trailer diff":{"a10":-0.4,"a6":-0.3},"IC-CO Trucks":{"a10":0.2,"a6":0.2}},"Pittsburgh":{"Load vs budget":{"a10":-25.3,"a6":-31.7},"Co Tractor LH Rev":{"a10":-812.4,"a6":-745.2},"Trailer LH Rev":{"a10":987.3,"a6":945.2},"IC NonRev Acct":{"a10":298.0,"a6":312.5},"IC NonRev Bill":{"a10":375.0,"a6":345.2},"IC NonRev Acct(lag)":{"a10":450.0,"a6":398.5},"IC NonRev Bill(lag)":{"a10":567.8,"a6":512.5},"Ops OVT":{"a10":3245.6,"a6":2987.4},"Ops MISC":{"a10":567.8,"a6":498.7},"Ops Guar Pay":{"a10":412.6,"a6":356.8},"Tractor diff":{"a10":0.8,"a6":0.7},"Trailer diff":{"a10":2.4,"a6":2.2},"IC-CO Trucks":{"a10":0.0,"a6":0.0}},"Port EV":{"Load vs budget":{"a10":38.4,"a6":45.2},"Co Tractor LH Rev":{"a10":1245.7,"a6":1187.4},"Trailer LH Rev":{"a10":856.2,"a6":812.7},"IC NonRev Acct":{"a10":687.4,"a6":612.8},"IC NonRev Bill":{"a10":892.4,"a6":812.5},"IC NonRev Acct(lag)":{"a10":687.4,"a6":612.8},"IC NonRev Bill(lag)":{"a10":892.4,"a6":812.4},"Ops OVT":{"a10":1456.8,"a6":1324.5},"Ops MISC":{"a10":1245.6,"a6":1123.4},"Ops Guar Pay":{"a10":834.5,"a6":734.5},"Tractor diff":{"a10":1.2,"a6":1.1},"Trailer diff":{"a10":7.8,"a6":7.2},"IC-CO Trucks":{"a10":0.6,"a6":0.6}},"Taft":{"Load vs budget":{"a10":-32.8,"a6":-38.4},"Co Tractor LH Rev":{"a10":-1087.3,"a6":-1023.6},"Trailer LH Rev":{"a10":1024.7,"a6":987.3},"IC NonRev Acct":{"a10":412.5,"a6":387.5},"IC NonRev Bill":{"a10":612.8,"a6":545.8},"IC NonRev Acct(lag)":{"a10":412.5,"a6":376.5},"IC NonRev Bill(lag)":{"a10":612.5,"a6":545.2},"Ops OVT":{"a10":1876.4,"a6":1654.8},"Ops MISC":{"a10":834.5,"a6":734.5},"Ops Guar Pay":{"a10":312.4,"a6":276.5},"Tractor diff":{"a10":1.5,"a6":1.4},"Trailer diff":{"a10":2.1,"a6":1.9},"IC-CO Trucks":{"a10":0.0,"a6":0.0}},"Tampa":{"Load vs budget":{"a10":12.1,"a6":18.7},"Co Tractor LH Rev":{"a10":187.6,"a6":176.3},"Trailer LH Rev":{"a10":678.5,"a6":645.8},"IC NonRev Acct":{"a10":892.3,"a6":812.4},"IC NonRev Bill":{"a10":1245.6,"a6":1123.4},"IC NonRev Acct(lag)":{"a10":945.8,"a6":856.4},"IC NonRev Bill(lag)":{"a10":1245.8,"a6":1123.8},"Ops OVT":{"a10":2345.7,"a6":2123.6},"Ops MISC":{"a10":1876.4,"a6":1654.8},"Ops Guar Pay":{"a10":1245.8,"a6":1123.4},"Tractor diff":{"a10":-0.3,"a6":-0.2},"Trailer diff":{"a10":5.6,"a6":5.2},"IC-CO Trucks":{"a10":0.0,"a6":0.0}},"Alabama":{"Load vs budget":{"a10":-18.4,"a6":-24.6},"Co Tractor LH Rev":{"a10":-654.2,"a6":-612.8},"Trailer LH Rev":{"a10":-412.6,"a6":-398.4},"IC NonRev Acct":{"a10":1456.8,"a6":1245.6},"IC NonRev Bill":{"a10":1678.3,"a6":1456.8},"IC NonRev Acct(lag)":{"a10":1345.6,"a6":1198.7},"IC NonRev Bill(lag)":{"a10":1567.3,"a6":1345.6},"Ops OVT":{"a10":567.8,"a6":498.7},"Ops MISC":{"a10":412.6,"a6":356.8},"Ops Guar Pay":{"a10":187.6,"a6":156.8},"Tractor diff":{"a10":-0.2,"a6":-0.1},"Trailer diff":{"a10":6.8,"a6":6.4},"IC-CO Trucks":{"a10":0.3,"a6":0.3}},"Indiana":{"Load vs budget":{"a10":-42.7,"a6":-51.3},"Co Tractor LH Rev":{"a10":-892.5,"a6":-845.7},"Trailer LH Rev":{"a10":1245.3,"a6":1198.7},"IC NonRev Acct":{"a10":654.2,"a6":598.7},"IC NonRev Bill":{"a10":834.5,"a6":756.4},"IC NonRev Acct(lag)":{"a10":712.4,"a6":645.2},"IC NonRev Bill(lag)":{"a10":834.5,"a6":756.4},"Ops OVT":{"a10":834.5,"a6":734.5},"Ops MISC":{"a10":945.8,"a6":834.6},"Ops Guar Pay":{"a10":567.8,"a6":498.7},"Tractor diff":{"a10":-0.6,"a6":-0.5},"Trailer diff":{"a10":3.4,"a6":3.1},"IC-CO Trucks":{"a10":1.2,"a6":1.1}},"Tennessee":{"Load vs budget":{"a10":2.4,"a6":8.2},"Co Tractor LH Rev":{"a10":-3124.8,"a6":-2987.4},"Trailer LH Rev":{"a10":-87.4,"a6":-76.5},"IC NonRev Acct":{"a10":478.6,"a6":412.5},"IC NonRev Bill":{"a10":712.4,"a6":645.2},"IC NonRev Acct(lag)":{"a10":567.8,"a6":512.8},"IC NonRev Bill(lag)":{"a10":712.4,"a6":645.8},"Ops OVT":{"a10":412.6,"a6":356.8},"Ops MISC":{"a10":312.4,"a6":276.5},"Ops Guar Pay":{"a10":412.6,"a6":356.8},"Tractor diff":{"a10":1.1,"a6":1.0},"Trailer diff":{"a10":3.2,"a6":2.9},"IC-CO Trucks":{"a10":0.0,"a6":0.0}},"N. Augusta":{"Load vs budget":{"a10":14.2,"a6":19.4},"Co Tractor LH Rev":{"a10":-2543.6,"a6":-2412.5},"Trailer LH Rev":{"a10":-312.8,"a6":-298.6},"IC NonRev Acct":{"a10":512.3,"a6":476.8},"IC NonRev Bill":{"a10":567.8,"a6":512.5},"IC NonRev Acct(lag)":{"a10":498.6,"a6":456.4},"IC NonRev Bill(lag)":{"a10":567.8,"a6":512.5},"Ops OVT":{"a10":945.8,"a6":834.6},"Ops MISC":{"a10":567.8,"a6":498.7},"Ops Guar Pay":{"a10":678.9,"a6":598.7},"Tractor diff":{"a10":0.4,"a6":0.3},"Trailer diff":{"a10":4.1,"a6":3.8},"IC-CO Trucks":{"a10":1.8,"a6":1.7}},"Doraville":{"Load vs budget":{"a10":-48.6,"a6":-62.8},"Co Tractor LH Rev":null,"Trailer LH Rev":{"a10":-1456.2,"a6":-1398.4},"IC NonRev Acct":{"a10":387.5,"a6":345.2},"IC NonRev Bill":{"a10":498.6,"a6":456.8},"IC NonRev Acct(lag)":{"a10":387.5,"a6":345.8},"IC NonRev Bill(lag)":{"a10":498.6,"a6":456.8},"Ops OVT":null,"Ops MISC":null,"Ops Guar Pay":null,"Tractor diff":{"a10":-0.4,"a6":-0.3},"Trailer diff":{"a10":6.2,"a6":5.8},"IC-CO Trucks":{"a10":0.4,"a6":0.4}},"Texas":{"Load vs budget":{"a10":19.8,"a6":27.5},"Co Tractor LH Rev":{"a10":-2987.4,"a6":-2845.3},"Trailer LH Rev":{"a10":124.7,"a6":112.4},"IC NonRev Acct":{"a10":1245.6,"a6":1123.4},"IC NonRev Bill":{"a10":1345.2,"a6":1198.7},"IC NonRev Acct(lag)":{"a10":1124.3,"a6":998.7},"IC NonRev Bill(lag)":{"a10":1234.5,"a6":1098.7},"Ops OVT":{"a10":678.9,"a6":598.7},"Ops MISC":{"a10":678.9,"a6":598.7},"Ops Guar Pay":{"a10":512.3,"a6":456.8},"Tractor diff":{"a10":-1.2,"a6":-1.0},"Trailer diff":{"a10":2.8,"a6":2.5},"IC-CO Trucks":{"a10":1.6,"a6":1.5}},"Pennsauken":{"Load vs budget":{"a10":29.7,"a6":41.3},"Co Tractor LH Rev":null,"Trailer LH Rev":{"a10":987.6,"a6":945.8},"IC NonRev Acct":{"a10":125.0,"a6":112.5},"IC NonRev Bill":{"a10":245.0,"a6":212.5},"IC NonRev Acct(lag)":{"a10":125.0,"a6":112.5},"IC NonRev Bill(lag)":{"a10":245.0,"a6":212.5},"Ops OVT":null,"Ops MISC":null,"Ops Guar Pay":null,"Tractor diff":{"a10":-0.8,"a6":-0.7},"Trailer diff":{"a10":2.4,"a6":2.2},"IC-CO Trucks":{"a10":0.0,"a6":0.0}},"Portsmouth":{"Load vs budget":{"a10":-76.4,"a6":-88.6},"Co Tractor LH Rev":{"a10":-987.3,"a6":-934.6},"Trailer LH Rev":{"a10":187.4,"a6":176.5},"IC NonRev Acct":{"a10":47.5,"a6":42.5},"IC NonRev Bill":{"a10":89.3,"a6":76.8},"IC NonRev Acct(lag)":{"a10":47.5,"a6":42.5},"IC NonRev Bill(lag)":{"a10":89.3,"a6":76.8},"Ops OVT":{"a10":3124.5,"a6":2876.5},"Ops MISC":{"a10":2345.6,"a6":2123.4},"Ops Guar Pay":{"a10":1876.4,"a6":1654.8},"Tractor diff":{"a10":0.0,"a6":0.0},"Trailer diff":{"a10":0.0,"a6":0.0},"IC-CO Trucks":{"a10":0.0,"a6":0.0}},"Washingtonville":{"Load vs budget":{"a10":-1.1,"a6":-3.4},"Co Tractor LH Rev":{"a10":-142.8,"a6":-135.4},"Trailer LH Rev":{"a10":412.8,"a6":398.7},"IC NonRev Acct":null,"IC NonRev Bill":{"a10":175.0,"a6":156.4},"IC NonRev Acct(lag)":null,"IC NonRev Bill(lag)":{"a10":175.0,"a6":156.4},"Ops OVT":null,"Ops MISC":null,"Ops Guar Pay":null,"Tractor diff":{"a10":-0.2,"a6":-0.1},"Trailer diff":{"a10":0.0,"a6":0.0},"IC-CO Trucks":{"a10":0.0,"a6":0.0}}}};
+
+    /* ================= STATE ================= */
+    let currentExplorerPeriod = 10;
+    let currentHeatmapPeriod = 10;
+
+    /* ================= NAV ================= */
+    function showSection(section) {
+        document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+        document.getElementById(section).classList.add('active');
+        document.querySelectorAll('[id^="nav-"]').forEach(el => el.classList.remove('nav-active', 'bg-slate-900', 'text-white'));
+        const navBtn = document.getElementById('nav-' + section);
+        if (navBtn) navBtn.classList.add('nav-active', 'bg-slate-900', 'text-white');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ================= TREND EXPLORER ================= */
+    function getDirection(data) {
+        var a10 = data.avg10 || 0, a6 = data.avg6 || 0;
+        if (Math.abs(a6 - a10) < 0.5) return 'flat';
+        return a6 > a10 ? 'up' : 'down';
+    }
+
+    function updateExplorer() {
+        var terminal = document.getElementById('terminal-select').value;
+        var container = document.getElementById('explorer-content');
+        container.innerHTML = '';
+        var termData = widgetData.terminals[terminal];
+        if (!termData) return;
+        var is10w = currentExplorerPeriod === 10;
+        var avgKey = is10w ? 'avg10' : 'avg6';
+        var hasContent = false;
+
+        // Iterate categories in the canonical display order
+        heatmapData.cats.forEach(function(cat) {
+            var data = termData[cat];
+            if (!data || data.nonzero === 0) return;
+            var avg   = data[avgKey] || 0;
+            var avg10 = data.avg10   || 0;
+            var avg6  = data.avg6    || 0;
+            var dir   = getDirection(data);
+
+            var badgeClass = 'bg-slate-100 text-slate-600', badgeText = '→ Flat', icon = 'fa-minus', dirColor = 'text-slate-500';
+            if (dir === 'up')   { badgeClass = 'bg-emerald-100 text-emerald-700'; badgeText = '↑ Rising';  icon = 'fa-arrow-trend-up';   dirColor = 'text-emerald-600'; }
+            else if (dir === 'down') { badgeClass = 'bg-rose-100 text-rose-700';   badgeText = '↓ Falling'; icon = 'fa-arrow-trend-down'; dirColor = 'text-rose-600'; }
+
+            var chg = avg6 - avg10;
+            var changeTxt = (chg >= 0 ? '+' : '') + chg.toFixed(1);
+            var avgColor = avg < 0 ? 'text-rose-600' : 'text-slate-900';
+            hasContent = true;
+
+            var card = document.createElement('div');
+            card.className = 'kpi-card bg-white border border-slate-200 rounded-3xl p-5';
+            card.innerHTML =
+                '<div class="flex justify-between items-start gap-x-2">' +
+                  '<div><div class="font-semibold text-base leading-tight">' + cat + '</div>' +
+                  '<div class="text-[10px] text-slate-500 mt-0.5">' + terminal + '</div></div>' +
+                  '<div class="metric-badge ' + badgeClass + ' flex items-center gap-x-1 px-2.5 py-0.5 flex-shrink-0">' +
+                    '<i class="fa-solid ' + icon + ' text-xs"></i>' +
+                    '<span class="font-semibold">' + badgeText + '</span></div></div>' +
+                '<div class="mt-4 flex items-baseline gap-x-3">' +
+                  '<div><div class="text-xs text-slate-500">' + (is10w ? '10-wk' : '6-wk') + ' Avg</div>' +
+                  '<div class="text-3xl font-semibold tabular-nums ' + avgColor + '">' + avg.toFixed(1) + '</div></div>' +
+                  '<div class="text-xs"><div class="text-slate-500">6wk vs 10wk</div>' +
+                  '<div class="font-mono text-lg font-semibold ' + dirColor + '">' + changeTxt + '<span class="text-xs font-normal"> chg</span></div></div></div>' +
+                '<div class="mt-3 grid grid-cols-2 gap-2 text-xs">' +
+                  '<div class="bg-slate-50 rounded-xl px-3 py-2"><div class="text-slate-400 text-[10px]">10-week avg</div><div class="font-semibold tabular-nums ' + (avg10 < 0 ? 'text-rose-600' : '') + '">' + avg10.toFixed(1) + '</div></div>' +
+                  '<div class="bg-slate-50 rounded-xl px-3 py-2"><div class="text-slate-400 text-[10px]">6-week avg</div><div class="font-semibold tabular-nums ' + (avg6 < 0 ? 'text-rose-600' : '') + '">' + avg6.toFixed(1) + '</div></div>' +
+                '</div>';
+            container.appendChild(card);
+        });
+
+        if (!hasContent) {
+            container.innerHTML = '<div class="col-span-full p-8 text-center text-slate-400">No active categories with data for this terminal.</div>';
+        }
+    }
+
+    function setExplorerPeriod(period) {
+        currentExplorerPeriod = period;
+        document.getElementById('btn-10w').classList.toggle('bg-slate-900', period === 10);
+        document.getElementById('btn-10w').classList.toggle('text-white', period === 10);
+        document.getElementById('btn-10w').classList.toggle('text-slate-700', period !== 10);
+        document.getElementById('btn-6w').classList.toggle('bg-slate-900', period === 6);
+        document.getElementById('btn-6w').classList.toggle('text-white', period === 6);
+        document.getElementById('btn-6w').classList.toggle('text-slate-700', period !== 6);
+        updateExplorer();
+    }
+
+    /* ================= HEATMAP ================= */
+    function hmDir(cell) {
+        var a10 = cell.a10 || 0, a6 = cell.a6 || 0;
+        if (Math.abs(a6 - a10) < 0.5) return 'flat';
+        return a6 > a10 ? 'up' : 'down';
+    }
+
+    function renderHeatmap() {
+        var table = document.getElementById('heatmap-table');
+        table.innerHTML = '';
+        var is10w = currentHeatmapPeriod === 10;
+        var avgKey = is10w ? 'a10' : 'a6';
+
+        var thead = '<thead><tr><th class="text-left sticky left-0 z-20" style="min-width:140px">Terminal</th>';
+        heatmapData.cats.forEach(function(cat) {
+            var short = cat.length > 18 ? cat.substring(0, 16) + '…' : cat;
+            thead += '<th title="' + cat + '">' + short + '</th>';
+        });
+        thead += '</tr></thead>';
+        table.innerHTML = thead;
+
+        var tbody = document.createElement('tbody');
+        heatmapData.terminals.forEach(function(terminal, ti) {
+            var row = document.createElement('tr');
+            var html = '<td class="text-left font-medium sticky left-0 bg-white z-10 border-r">' + terminal + '</td>';
+            heatmapData.cats.forEach(function(cat, ci) {
+                var cell = heatmapData.cells[terminal] && heatmapData.cells[terminal][cat];
+                if (!cell) { html += '<td class="bg-slate-100 text-slate-300 text-[9px]">—</td>'; return; }
+                var avg = cell[avgKey] || 0;
+                var chg = (cell.a6 || 0) - (cell.a10 || 0);
+                var dir = hmDir(cell);
+                var arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→';
+                var bg = 'bg-slate-100', tc = 'text-slate-600';
+                if (dir === 'up')   { bg = Math.abs(chg) > 100 ? 'bg-emerald-200' : 'bg-emerald-100'; tc = 'text-emerald-800'; }
+                if (dir === 'down') { bg = Math.abs(chg) > 100 ? 'bg-rose-200'    : 'bg-rose-100';    tc = 'text-rose-800'; }
+                var dispAvg = avg.toFixed(1);
+                var dispChg = (chg >= 0 ? '+' : '') + chg.toFixed(1);
+                html += '<td class="heatmap-cell ' + bg + ' ' + tc + '" onclick="showCellDetail(' + ti + ',' + ci + ')">' +
+                    '<div class="leading-none">' +
+                    '<div class="font-mono text-[11px] font-semibold whitespace-nowrap">' + arrow + ' ' + dispChg + '</div>' +
+                    '<div class="text-[9px] opacity-75 mt-0.5">avg ' + dispAvg + '</div>' +
+                    '</div></td>';
+            });
+            row.innerHTML = html;
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+    }
+
+    function setHeatmapPeriod(period) {
+        currentHeatmapPeriod = period;
+        document.getElementById('hbtn-10w').classList.toggle('bg-slate-900', period === 10);
+        document.getElementById('hbtn-10w').classList.toggle('text-white', period === 10);
+        document.getElementById('hbtn-10w').classList.toggle('text-slate-700', period !== 10);
+        document.getElementById('hbtn-6w').classList.toggle('bg-slate-900', period === 6);
+        document.getElementById('hbtn-6w').classList.toggle('text-white', period === 6);
+        document.getElementById('hbtn-6w').classList.toggle('text-slate-700', period !== 6);
+        renderHeatmap();
+    }
+
+    function showCellDetail(ti, ci) {
+        var terminal = heatmapData.terminals[ti];
+        var category = heatmapData.cats[ci];
+        var cell = heatmapData.cells[terminal][category];
+        if (!cell) { alert(terminal + ' — ' + category + '\n\nNo activity recorded for this terminal/category.'); return; }
+        var chg = (cell.a6 || 0) - (cell.a10 || 0);
+        var avg = currentHeatmapPeriod === 10 ? cell.a10 : cell.a6;
+        var periodLabel = currentHeatmapPeriod === 10 ? '10-week' : '6-week';
+        var direction = chg > 0.5 ? 'Rising' : chg < -0.5 ? 'Falling' : 'Flat';
+        var chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(1);
+        alert(terminal + ' — ' + category + '\n\n' + periodLabel + ' Period' +
+              '\n10-week avg: ' + (cell.a10).toFixed(1) +
+              '\n6-week avg: ' + (cell.a6).toFixed(1) +
+              '\nChange (6wk vs 10wk): ' + chgStr + ' (' + direction + ')' +
+              '\nPeriod average shown: ' + avg.toFixed(1));
+    }
+
+    /* ================= SPREADSHEETS ================= */
+    var SS_CATS = heatmapData.cats;
+    var SS_TERMINALS = heatmapData.terminals;
+
+    function fmtCell(v, nz) {
+        if (nz === 0 || v === null || v === undefined) return '—';
+        var n = parseFloat(v);
+        if (isNaN(n)) return '—';
+        if (n === 0) return '0.0';
+        var abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        return n < 0 ? '(' + abs + ')' : abs;
+    }
+
+    function renderSpreadsheetTables() {
+        ['ss-head-10week', 'ss-head-6week'].forEach(function(id) {
+            var el = document.getElementById(id);
+            var h = '<tr><th class="text-left" style="min-width:130px">Terminal</th>';
+            SS_CATS.forEach(function(c) { h += '<th style="min-width:80px;white-space:nowrap;text-align:right">' + c + '</th>'; });
+            h += '</tr>';
+            el.innerHTML = h;
+        });
+        buildSSTable('table-10week', 'avg10');
+        buildSSTable('table-6week', 'avg6');
+    }
+
+    function buildSSTable(tbodyId, avgKey) {
+        var tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+        SS_TERMINALS.forEach(function(term, ri) {
+            var termData = widgetData.terminals[term] || {};
+            var tr = document.createElement('tr');
+            if (ri % 2 === 0) tr.style.background = '#f8fafc';
+            var html = '<td class="font-medium whitespace-nowrap">' + term + '</td>';
+            SS_CATS.forEach(function(cat) {
+                var d = termData[cat];
+                var v = d ? (d[avgKey] || 0) : 0;
+                var nz = d ? (d.nonzero || 0) : 0;
+                var display = fmtCell(v, nz);
+                var cls = (nz === 0) ? 'text-slate-300' : (v < 0 ? 'text-rose-600 font-medium' : (v > 0 ? 'text-emerald-700' : 'text-slate-500'));
+                html += '<td class="' + cls + '" style="text-align:right;white-space:nowrap">' + display + '</td>';
+            });
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function downloadCSV(type) {
+        var avgKey = type === '10week' ? 'avg10' : 'avg6';
+        var filename = type === '10week' ? 'KPIs_10week_average.csv' : 'KPIs_6week_average.csv';
+        var rows = [];
+        rows.push(['Terminal'].concat(SS_CATS).map(csvEscape).join(','));
+        SS_TERMINALS.forEach(function(term) {
+            var termData = widgetData.terminals[term] || {};
+            var line = [term];
+            SS_CATS.forEach(function(cat) {
+                var d = termData[cat];
+                var nz = d ? (d.nonzero || 0) : 0;
+                var v = d ? (d[avgKey] || 0) : 0;
+                line.push(nz === 0 ? '' : v.toFixed(1));
+            });
+            rows.push(line.map(csvEscape).join(','));
+        });
+        var blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+    function csvEscape(v) {
+        v = String(v);
+        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }
+
+    /* ================= BOOT ================= */
+    function bootDashboard() {
+        var select = document.getElementById('terminal-select');
+        select.innerHTML = '';
+        heatmapData.terminals.forEach(function(term) {
+            var opt = document.createElement('option');
+            opt.value = term; opt.textContent = term;
+            select.appendChild(opt);
+        });
+        select.value = heatmapData.terminals[0];
+
+        updateExplorer();
+        renderHeatmap();
+        renderSpreadsheetTables();
+        showSection('overview');
+    }
+    window.onload = bootDashboard;
+    </script>
+</body>
+</html>
